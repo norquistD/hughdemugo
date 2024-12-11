@@ -1,6 +1,9 @@
 import pygame
 import sys
 import copy
+import pandas as pd
+import tkinter as tk
+from tkinter import filedialog
 
 from Astar import AStar
 
@@ -22,7 +25,7 @@ WINDOW_HEIGHT = GRID_HEIGHT * CELL_SIZE
 
 # Set up the display
 window = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-pygame.display.set_caption("Grid Simulation")
+pygame.display.set_caption("A* Simulation")
 
 # Clock for controlling the frame rate
 clock = pygame.time.Clock()
@@ -77,6 +80,33 @@ def draw_agent():
     row, col = agent_pos
     rect = pygame.Rect(col * CELL_SIZE, row * CELL_SIZE, CELL_SIZE, CELL_SIZE)
     pygame.draw.rect(window, (0, 255, 0), rect)  # Agent is green
+
+def select_file():
+    # Create a Tkinter root window (it won't be shown)
+    root = tk.Tk()
+    root.withdraw()  # Hide the main Tkinter window
+    
+    # Open a file dialog to select a file
+    file_path = filedialog.askopenfilename(
+        title="Select a World",  # Window title
+        filetypes=(("World files", "*.world"), ("All files", "*.*"))  # File types to show
+    )
+    
+    return file_path
+
+def save_file():
+    # Create a Tkinter root window (it won't be shown)
+    root = tk.Tk()
+    root.withdraw()  # Hide the main Tkinter window
+    
+    # Open a file dialog to save a file
+    file_path = filedialog.asksaveasfilename(
+        title="Save as",  # Window title
+        defaultextension=".path",  # Default file extension
+        filetypes=(("World files", "*.world"), ("All files", "*.*"))  # File types to show
+    )
+    
+    return file_path
 
 # Variable to track if the mouse button is pressed
 mouse_pressed = False
@@ -160,18 +190,19 @@ while running:
                     if VIEW_HISTORY:
                         visualizing_history = True
 
-                    # Run the A* algorithm to get the path and history
-                    matrix = copy.deepcopy(grid)
-                    pathfinder = AStar(matrix, agent_pos, goal_pos)
-                    path, history = pathfinder.astar()
-                    path = [(x, y) for y, x in path]
-                    for i in range(len(history)):
-                        history[i] = [(x, y) for y, x in history[i]]
-
-                    if not path:
-                        print('No path could be found.')
-                        path = []
-                        visualizing_history = False  # No need to visualize if no path
+                    try:
+                        # Run the A* algorithm to get the path and history
+                        matrix = copy.deepcopy(grid)
+                        pathfinder = AStar(matrix, agent_pos, goal_pos)
+                        path, history = pathfinder.astar()
+                        path = [(x, y) for y, x in path]
+                        for i in range(len(history)):
+                            history[i] = [(x, y) for y, x in history[i]]
+                    except:
+                        if not path:
+                            print('No path could be found.')
+                            path = []
+                            visualizing_history = False  # No need to visualize if no path
                 else:
                     print("Please set a goal position by pressing 'G' over a cell.")
 
@@ -180,6 +211,28 @@ while running:
                 path = []
                 history = []
                 visualizing_history = False
+                pygame.display.set_caption("A* Simulation")
+
+
+            # Clear the path and blocked cells when 'X' is pressed
+            if event.key == pygame.K_x:
+                path = []
+                history = []
+                visualizing_history = False
+                pygame.display.set_caption("A* Simulation")
+                grid = [[0 for _ in range(GRID_WIDTH)] for _ in range(GRID_HEIGHT)]
+
+            # Save blocked cells when 'J' is pressed
+            if event.key == pygame.K_j:
+                file_path = save_file()  # Use a separate variable for the file path
+                if file_path is not None and file_path != '':
+                    pd.DataFrame(grid).to_csv(file_path, index=False, header=False)
+                    
+            # Loads blocked cells when 'k' is pressed
+            if event.key == pygame.K_k:
+                file_path = select_file()  # Use a separate variable for the file path
+                if file_path is not None and file_path != '':
+                    grid = pd.read_csv(file_path, header=None).astype(dtype='int64').to_numpy().__array__()
 
     # Update visualization
     if visualizing_history:
@@ -189,6 +242,7 @@ while running:
             if history_index < len(history) - 1:
                 history_index += 1
             else:
+                pygame.display.set_caption("You found the Goal")
                 visualizing_history = False  # Visualization complete
     else:
         history_index = 0  # Reset when not visualizing
